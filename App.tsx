@@ -8,6 +8,7 @@ import StyleSelector from './components/StyleSelector';
 import ResultDisplay from './components/ResultDisplay';
 import SparklesIcon from './components/icons/SparklesIcon';
 import DiceIcon from './components/icons/DiceIcon';
+import { STYLE_CATEGORIES } from './constants';
 
 type ImageCategory = 'character' | 'background' | 'object';
 
@@ -22,8 +23,8 @@ const App: React.FC = () => {
     background: null,
     object: null,
   });
-  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState<string>('');
+  const [selectedStyleIds, setSelectedStyleIds] = useState<string[]>([]);
+  const [customPrompt, setCustomPrompt] = useState<string>('');
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,17 +107,16 @@ const App: React.FC = () => {
   };
 
   const handleStyleSelect = useCallback((style: StyleOption) => {
-    setSelectedStyleId(style.id);
-    setPrompt(style.prompt);
+    setSelectedStyleIds(prev =>
+      prev.includes(style.id)
+        ? prev.filter(id => id !== style.id)
+        : [...prev, style.id]
+    );
   }, []);
 
   const handleCustomPromptChange = useCallback((newPrompt: string) => {
-    setPrompt(newPrompt);
-    // If user types, deselect the preset style
-    if (selectedStyleId !== null) {
-      setSelectedStyleId(null);
-    }
-  }, [selectedStyleId]);
+    setCustomPrompt(newPrompt);
+  }, []);
 
   const handleSubmit = async () => {
     const orderedFiles: File[] = [];
@@ -135,8 +135,16 @@ const App: React.FC = () => {
         orderedFiles.push(images.object);
         synthesisPrompt += `${orderedFiles.length === 1 ? '첫' : orderedFiles.length === 2 ? '두 번째' : '세 번째'} 번째 이미지는 사물이야. `;
     }
+    
+    const allStyles = STYLE_CATEGORIES.flatMap(category => category.options);
+    const selectedPrompts = selectedStyleIds
+      .map(id => allStyles.find(style => style.id === id)?.prompt)
+      .filter(Boolean);
 
-    if (orderedFiles.length === 0 || !prompt) {
+    const stylePrompt = selectedPrompts.join(', ');
+    const combinedPrompt = [stylePrompt, customPrompt].filter(Boolean).join('. ');
+
+    if (orderedFiles.length === 0 || !combinedPrompt) {
       setError('이미지를 하나 이상 업로드하고 스타일을 선택하거나 프롬프트를 작성해주세요.');
       return;
     }
@@ -145,7 +153,7 @@ const App: React.FC = () => {
     setError(null);
     setGeneratedImage(null);
 
-    const finalPrompt = synthesisPrompt + prompt;
+    const finalPrompt = synthesisPrompt + combinedPrompt;
 
     try {
       const resultBase64 = await generateCompositeImage(orderedFiles, finalPrompt);
@@ -161,7 +169,7 @@ const App: React.FC = () => {
     }
   };
   
-  const isSubmitDisabled = Object.values(images).every(f => f === null) || !prompt || isLoading;
+  const isSubmitDisabled = Object.values(images).every(f => f === null) || (!customPrompt && selectedStyleIds.length === 0) || isLoading;
 
   const sourceImagesForDisplay = (Object.keys(previews) as ImageCategory[])
     .filter(key => previews[key] !== null)
@@ -229,9 +237,9 @@ const App: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold mb-4 text-gray-100">2. 합성 스타일 선택</h2>
               <StyleSelector
-                selectedStyleId={selectedStyleId}
+                selectedStyleIds={selectedStyleIds}
                 onStyleSelect={handleStyleSelect}
-                customPrompt={prompt}
+                customPrompt={customPrompt}
                 onCustomPromptChange={handleCustomPromptChange}
               />
             </div>
