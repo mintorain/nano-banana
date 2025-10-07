@@ -1,0 +1,5 @@
+{
+  "name": "나노 바나나 이미지 변환기",
+  "description": "Gemini '나노 바나나' 모델을 사용하여 사용자가 업로드한 이미지를 다양한 예술 스타일로 변환하는 애플리케이션입니다.",
+  "requestFramePermissions": []
+}
